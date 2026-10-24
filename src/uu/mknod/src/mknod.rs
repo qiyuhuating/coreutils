@@ -265,13 +265,13 @@ pub fn uu_app() -> Command {
             Arg::new(options::MAJOR)
                 .value_name(options::MAJOR)
                 .help(translate!("mknod-help-major"))
-                .value_parser(value_parser!(u32)),
+                .value_parser(parse_device_number),
         )
         .arg(
             Arg::new(options::MINOR)
                 .value_name(options::MINOR)
                 .help(translate!("mknod-help-minor"))
-                .value_parser(value_parser!(u32)),
+                .value_parser(parse_device_number),
         )
         .arg(
             Arg::new(options::SECURITY_CONTEXT)
@@ -290,6 +290,22 @@ pub fn uu_app() -> Command {
         )
 }
 
+fn parse_device_number(value: &str) -> Result<u32, String> {
+    let value = value.strip_prefix('+').unwrap_or(value);
+    let (digits, radix) = if let Some(hex) = value
+        .strip_prefix("0x")
+        .or_else(|| value.strip_prefix("0X"))
+    {
+        (hex, 16)
+    } else if value.len() > 1 && value.starts_with('0') {
+        (&value[1..], 8)
+    } else {
+        (value, 10)
+    };
+
+    u32::from_str_radix(digits, radix).map_err(|err| err.to_string())
+}
+
 fn parse_type(tpe: &str) -> Result<FileType, String> {
     // Dispatch on the leading character alone, so a spelled-out type works
     // wherever its initial does: `character` is read like `c` in
@@ -303,4 +319,27 @@ fn parse_type(tpe: &str) -> Result<FileType, String> {
             'p' => Ok(FileType::Fifo),
             _ => Err(translate!("mknod-error-invalid-device-type", "type" => tpe.quote())),
         })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_device_number;
+
+    #[test]
+    fn device_numbers_follow_documented_radices() {
+        assert_eq!(parse_device_number("42"), Ok(42));
+        assert_eq!(parse_device_number("+42"), Ok(42));
+        assert_eq!(parse_device_number("052"), Ok(42));
+        assert_eq!(parse_device_number("0x2a"), Ok(42));
+        assert_eq!(parse_device_number("0X2A"), Ok(42));
+    }
+
+    #[test]
+    fn device_numbers_still_reject_invalid_or_overflowing_values() {
+        assert!(parse_device_number("08").is_err());
+        assert!(parse_device_number("0x").is_err());
+        assert!(parse_device_number("-1").is_err());
+        assert!(parse_device_number("4294967296").is_err());
+        assert!(parse_device_number("0x100000000").is_err());
+    }
 }
