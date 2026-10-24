@@ -25,7 +25,6 @@ fn test_bare_dash_reads_stdin_in_file_list() {
         .stdout_is("stdin\nfile\n");
 }
 
-
 #[test]
 fn test_with_tab() {
     new_ucmd!()
