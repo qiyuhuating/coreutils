@@ -194,6 +194,7 @@ fn expand_shortcuts(args: Vec<OsString>) -> Vec<OsString> {
 
     for arg in args {
         if let Some(arg) = arg.to_str()
+            && arg.len() > 1
             && arg.starts_with('-')
             && arg[1..].chars().all(is_digit_or_comma)
         {
